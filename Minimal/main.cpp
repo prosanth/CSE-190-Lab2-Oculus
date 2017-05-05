@@ -56,8 +56,10 @@ glm::mat4 rightPose;
 glm::vec3 eyeOffsetDelta;
 glm::vec3 eyeOffsetDefault;
 
+glm::mat4 originalHeadPose, newHeadPose = glm::mat4(1.0f);
+glm::vec3 posVector = glm::vec3(0.0f, 0.0f, 0.0f);
 
-
+bool testSkybox = false;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -665,8 +667,7 @@ protected:
 				}
 			}
 
-			glm::mat4 originalHeadPose, newHeadPose;
-			glm::vec3 posVector;
+
 
 			//STEREO 
 			if (renderMode == 0) {
@@ -754,7 +755,10 @@ protected:
 				else if (trackingMode == 1) {
 					originalHeadPose = ovr::toGlm(eyePoses[eye]);
 					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
+					newHeadPose = glm::translate(glm::mat4(1.0f), posVector) * newHeadPose;
+					char buff[100];
+					//sprintf_s(buff, "Offset: %f %f %f\n", posVector.x, posVector.y, posVector.z);
+					//OutputDebugStringA(buff);
 					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
 					if (eye == ovrEyeType::ovrEye_Left) {
 						renderScene(_eyeProjections[eye], newHeadPose, eye);
@@ -823,6 +827,10 @@ protected:
 			//if only orientation, save last position
 			if (trackingMode != 1) {
 				posVector = ovr::toGlm(eyePoses[eye].Position);
+
+				char buff[100];
+				//sprintf_s(buff, "trackmode Offset: %f %f %f %f\n", eye, posVector.x, posVector.y, posVector.z);
+				//OutputDebugStringA(buff);
 			}
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
@@ -945,6 +953,7 @@ struct ColorCubeScene {
 
 	Cube * rightSkybox;
 	Cube * leftSkybox;
+	Cube * test;
 
 
 	// VBOs for the cube's vertices and normals
@@ -958,26 +967,33 @@ public:
 		// Load the shader program
 		shaderProgram = LoadShaders("./skyboxshader.vert", "./skyboxshader.frag");
 		
-		cube2 = new Cube(false, false);
+		cube2 = new Cube(false, false, false);
 
-		rightSkybox = new Cube(true, false);
-		leftSkybox = new Cube(true, true);
+		rightSkybox = new Cube(true, false, false);
+		leftSkybox = new Cube(true, true, false);
+
+		test = new Cube(true, false, true);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
 		glUseProgram(shaderProgram);
 
 		if (whatToDisplay == 1 || whatToDisplay == 2) {
-			if (renderMode != 1) {
-				if (eye == ovrEyeType::ovrEye_Left) {
-					leftSkybox->draw(shaderProgram, modelview, projection);
-				}
-				else {
-					rightSkybox->draw(shaderProgram, modelview, projection);
-				}
+			if (testSkybox) {
+				test->draw(shaderProgram, modelview, projection);
 			}
 			else {
-				leftSkybox->draw(shaderProgram, modelview, projection);
+				if (renderMode != 1) {	
+					if (eye == ovrEyeType::ovrEye_Left) {
+						leftSkybox->draw(shaderProgram, modelview, projection);
+					}
+					else {
+						rightSkybox->draw(shaderProgram, modelview, projection);
+					}
+				}
+				else {
+					leftSkybox->draw(shaderProgram, modelview, projection);
+				}
 			}
 		}
 
@@ -1053,7 +1069,7 @@ protected:
 
 			if (inputState.Thumbstick[ovrHand_Right].x < -0.8f) {
 				//decrease cube size
-				if(eyeOffsetDelta.x >= -eyeOffsetDefault.x)	eyeOffsetDelta.x = eyeOffsetDelta.x - 0.01;
+				if(eyeOffsetDelta.x >= -5*eyeOffsetDefault.x)	eyeOffsetDelta.x = eyeOffsetDelta.x - 0.002;
 
 				char buff[100];
 				//sprintf_s(buff, "Offset: %f\n", eyeOffsetDelta.x);
@@ -1061,7 +1077,7 @@ protected:
 			}
 			else if (inputState.Thumbstick[ovrHand_Right].x > 0.8f) {
 				//increase cube size
-				if (eyeOffsetDelta.x <= 0.84 - eyeOffsetDefault.x) eyeOffsetDelta.x = eyeOffsetDelta.x + 0.01;
+				if (eyeOffsetDelta.x <= 0.84 - eyeOffsetDefault.x) eyeOffsetDelta.x = eyeOffsetDelta.x + 0.002;
 
 				char buff[100];
 				//sprintf_s(buff, "Offset: %f\n", eyeOffsetDelta.x);
@@ -1085,7 +1101,19 @@ protected:
 				if (xPressed == false) {
 					xPressed = true;
 
-					whatToDisplay = (whatToDisplay + 1) % 3;
+					if (whatToDisplay == 1) {
+						if (testSkybox == false) {
+							testSkybox = true;
+						}
+						else {
+							whatToDisplay = (whatToDisplay + 1) % 3;
+							testSkybox = false;
+						}
+					}
+					else {
+						whatToDisplay = (whatToDisplay + 1) % 3;
+					}
+
 
 					char buff[100];
 					sprintf_s(buff, "What to Display: %d\n", whatToDisplay);

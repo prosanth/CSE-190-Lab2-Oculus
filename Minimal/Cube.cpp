@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <iostream>
 
-Cube::Cube(bool skybox, bool left)
+Cube::Cube(bool skybox, bool left, bool loadTest)
 {
 	if (!skybox) {
 		toWorld = glm::mat4(1.0f) *  glm::scale(glm::mat4(1.0f), glm::vec3(0.05f, 0.05f, 0.05f));
@@ -12,11 +12,16 @@ Cube::Cube(bool skybox, bool left)
 	}
 	else {
 		toWorld = glm::mat4(1.0f);
-		if (left) {
-			loadBearLeftEye();
+		if (!loadTest) {
+			if (left) {
+				loadBearLeftEye();
+			}
+			else {
+				loadBearRightEye();
+			}
 		}
 		else {
-			loadBearRightEye();
+			this->loadTest();
 		}
 	}
 
@@ -186,6 +191,45 @@ void Cube::loadBearLeftEye() {
 	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, back);
 
 	unsigned char * front = loadPPM("./assets/left-ppm/pz.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, front);
+
+	// Make sure no bytes are padded:
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Select GL_MODULATE to mix texture with polygon color for shading:
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	// Use bilinear interpolation:
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Use clamp to edge to hide skybox edges:
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+}
+
+void Cube::loadTest() {
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	unsigned char * right = loadPPM("./assets/ec/nx.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, right);
+
+	unsigned char * left = loadPPM("./assets/ec/px.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, left);
+
+	unsigned char * top = loadPPM("./assets/ec/py.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, top);
+
+	unsigned char * bottom = loadPPM("./assets/ec/ny.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, bottom);
+
+	unsigned char * back = loadPPM("./assets/ec/nz.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, back);
+
+	unsigned char * front = loadPPM("./assets/ec/pz.ppm", width, height);
 	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, front);
 
 	// Make sure no bytes are padded:

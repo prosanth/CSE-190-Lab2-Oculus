@@ -18,7 +18,7 @@
 class Cube
 {
 public:
-	Cube(bool skybox, bool left);
+	Cube(bool skybox, bool left, bool loadTest);
 	~Cube();
 
 	glm::mat4 toWorld;
@@ -30,6 +30,7 @@ public:
 	void setUpSkybox(bool skybox);
 	void loadBearRightEye();
 	void loadBearLeftEye();
+	void loadTest();
 	void changeSize(bool increase, bool decrease, bool default);
 
 	// These variables are needed for the shader program
