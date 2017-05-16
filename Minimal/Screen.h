@@ -18,13 +18,14 @@
 class Screen
 {
 public:
-	Screen();
+	Screen(int face);
 	~Screen();
 
 	glm::mat4 toWorld;
 	int width;
 	int height;
 	bool skybox;
+	int face;
 
 	void draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection);
 	void setUpSkybox(bool skybox);
@@ -47,12 +48,7 @@ const GLfloat vertices2[8][3] = {
 
 // Note that GL_QUADS is deprecated in modern OpenGL (and removed from OSX systems).
 // This is why we need to draw each face as 2 triangles instead of 1 quadrilateral
-const GLuint indices2[3][6] = {
-	// Front face
-	{ 0, 3, 2, 2, 1, 0 },
-	// Bottom face
-	{ 4, 7, 3, 3, 0, 4 },
-	// Left face
-	{ 4, 0, 1, 1, 5, 4 }
-};
+const GLuint front_indices[6] = { 0, 3, 2, 2, 1, 0 };
+const GLuint bottom_indices[6] = { 4, 7, 3, 3, 0, 4 };
+const GLuint left_indices[6] = { 4, 0, 1, 1, 5, 4 };
 #endif

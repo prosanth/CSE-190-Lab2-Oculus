@@ -62,6 +62,8 @@ glm::vec3 posVector = glm::vec3(0.0f, 0.0f, 0.0f);
 
 bool testSkybox = false;
 
+std::vector<Screen*> caveScreens;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -643,6 +645,8 @@ protected:
 	void draw() final override {
 		ovrPosef eyePoses[2];
 		
+		Screen 
+
 		ovr_GetEyePoses(_session, frame, true, _viewScaleDesc.HmdToEyeOffset, eyePoses, &_sceneLayer.SensorSampleTime);
 
 		int curIndex;
@@ -653,6 +657,8 @@ protected:
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
+
+
 			ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
 			//Set to default
 			if (rThumbPressed) {
@@ -956,8 +962,9 @@ struct ColorCubeScene {
 	Cube * leftSkybox;
 	Cube * test;
 
-	Screen * screen;
-
+	Screen * front;
+	Screen * left;
+	Screen * bottom;
 
 	// VBOs for the cube's vertices and normals
 
@@ -977,13 +984,22 @@ public:
 
 		test = new Cube(true, false, true);
 
-		screen = new Screen();
+		front = new Screen(0);
+		left = new Screen(1);
+		bottom = new Screen(2);
+		caveScreens.push_back(front);
+		caveScreens.push_back(left);
+		caveScreens.push_back(bottom);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
 		glUseProgram(shaderProgram);
 
-		screen->draw(shaderProgram, modelview, projection);
+		front->draw(shaderProgram, modelview, projection);
+
+		left->draw(shaderProgram, modelview, projection);
+
+		bottom->draw(shaderProgram, modelview, projection);
 
 		/*if (whatToDisplay == 1 || whatToDisplay == 2) {
 			if (testSkybox) {
@@ -1034,7 +1050,7 @@ public:
 protected:
 	void initGl() override {
 		RiftApp::initGl();
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		ovr_RecenterTrackingOrigin(_session);
 		cubeScene = std::shared_ptr<ColorCubeScene>(new ColorCubeScene());

@@ -3,12 +3,13 @@
 #include <Windows.h>
 #include <iostream>
 
-Screen::Screen()
+Screen::Screen(int face)
 {
 	toWorld = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	setUpSkybox(skybox);
 
 	this->skybox = skybox;
+	this->face = face;
 
 	this->height = 30;
 	this->width = 30;
@@ -25,8 +26,18 @@ Screen::Screen()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices2), indices2, GL_STATIC_DRAW);
+	if (face == 0) {
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(front_indices), front_indices, GL_STATIC_DRAW);
+	}
+	else if (face == 1) {
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(left_indices), left_indices, GL_STATIC_DRAW);
+	} 
+	else {
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(bottom_indices), bottom_indices, GL_STATIC_DRAW);
+	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -58,7 +69,7 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(glGetUniformLocation(shaderProgram, "skybox"), 0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	if (skybox) {
@@ -68,9 +79,20 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 
 void Screen::setUpSkybox(bool skybox) {
 	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
 
-	unsigned char * right = loadPPM("./assets/vr_test_pattern.ppm", width, height);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
+
+	GLuint rboId;
+	glGenRenderbuffers(1, &rboId);
+	glBindRenderbuffer(GL_RENDERBUFFER, rboId);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+	/*unsigned char * right = loadPPM("./assets/vr_test_pattern.ppm", width, height);
 	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, right);
 
 	unsigned char * left = loadPPM("./assets/vr_test_pattern.ppm", width, height);
@@ -86,7 +108,7 @@ void Screen::setUpSkybox(bool skybox) {
 	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, back);
 
 	unsigned char * front = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, front);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, front);*/
 
 	// Make sure no bytes are padded:
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
