@@ -27,6 +27,7 @@ limitations under the License.
 
 #include "Window.h"
 #include "Cube.h"
+#include "Screen.h"
 
 
 #define __STDC_FORMAT_MACROS 1
@@ -955,6 +956,8 @@ struct ColorCubeScene {
 	Cube * leftSkybox;
 	Cube * test;
 
+	Screen * screen;
+
 
 	// VBOs for the cube's vertices and normals
 
@@ -973,12 +976,16 @@ public:
 		leftSkybox = new Cube(true, true, false);
 
 		test = new Cube(true, false, true);
+
+		screen = new Screen();
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
 		glUseProgram(shaderProgram);
 
-		if (whatToDisplay == 1 || whatToDisplay == 2) {
+		screen->draw(shaderProgram, modelview, projection);
+
+		/*if (whatToDisplay == 1 || whatToDisplay == 2) {
 			if (testSkybox) {
 				test->draw(shaderProgram, modelview, projection);
 			}
@@ -1010,7 +1017,7 @@ public:
 			}
 			
 			cube2->draw(shaderProgram, modelview, projection);
-		}
+		}*/
 	}
 };
 
