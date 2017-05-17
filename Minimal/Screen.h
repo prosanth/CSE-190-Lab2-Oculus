@@ -27,7 +27,7 @@ public:
 	bool skybox;
 	int face;
 
-	void draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection);
+	void draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection, GLuint texture);
 	void setUpSkybox(bool skybox);
 
 	// These variables are needed for the shader program

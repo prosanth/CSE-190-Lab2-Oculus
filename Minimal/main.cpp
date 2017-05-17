@@ -22,6 +22,7 @@ limitations under the License.
 #include <memory>
 #include <exception>
 #include <algorithm>
+#include <vector>
 
 #include <Windows.h>
 
@@ -64,6 +65,14 @@ bool testSkybox = false;
 
 std::vector<Screen*> caveScreens;
 
+GLuint newFB;
+GLuint texture;
+GLuint depth;
+
+GLuint _fbo{ 0 };
+GLuint _depthBuffer{ 0 };
+
+GLFWwindow * window{ nullptr };
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -204,7 +213,6 @@ class GlfwApp {
 protected:
 	uvec2 windowSize;
 	ivec2 windowPosition;
-	GLFWwindow * window{ nullptr };
 	unsigned int frame{ 0 };
 
 public:
@@ -458,8 +466,7 @@ class RiftApp : public GlfwApp, public RiftManagerApp {
 public:
 
 private:
-	GLuint _fbo{ 0 };
-	GLuint _depthBuffer{ 0 };
+	
 	ovrTextureSwapChain _eyeTexture;
 
 	GLuint _mirrorFbo{ 0 };
@@ -644,8 +651,6 @@ protected:
 
 	void draw() final override {
 		ovrPosef eyePoses[2];
-		
-		Screen 
 
 		ovr_GetEyePoses(_session, frame, true, _viewScaleDesc.HmdToEyeOffset, eyePoses, &_sceneLayer.SensorSampleTime);
 
@@ -955,7 +960,7 @@ struct ColorCubeScene {
 	GLuint instanceCount;
 	oglplus::Buffer instances;
 
-	GLuint shaderProgram;
+	GLuint shaderProgram, texShader;
 	Cube * cube2;
 
 	Cube * rightSkybox;
@@ -976,6 +981,7 @@ public:
 
 		// Load the shader program
 		shaderProgram = LoadShaders("./skyboxshader.vert", "./skyboxshader.frag");
+		texShader = LoadShaders("./textureShader.vert", "textureShader.frag");
 		
 		cube2 = new Cube(false, false, false);
 
@@ -990,17 +996,63 @@ public:
 		caveScreens.push_back(front);
 		caveScreens.push_back(left);
 		caveScreens.push_back(bottom);
+
+		glGenFramebuffers(1, &newFB);
+		glBindFramebuffer(GL_FRAMEBUFFER, newFB);
+
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+		glGenRenderbuffers(1, &depth);
+		glBindRenderbuffer(GL_RENDERBUFFER, depth);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, // 1. fbo target: GL_FRAMEBUFFER
+			GL_DEPTH_ATTACHMENT, // 2. attachment point
+			GL_RENDERBUFFER, // 3. rbo target: GL_RENDERBUFFER
+			depth);
+
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+
+		GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+		glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			return;
+		}
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
+		glBindFramebuffer(GL_FRAMEBUFFER, newFB);
+		glViewport(0, 0, 1024, 768);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glUseProgram(texShader);
+
+		cube2->draw(texShader, modelview, projection);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		char buff[100];
+		sprintf_s(buff, "drawing to new framebuffer\n");
+		OutputDebugStringA(buff);
+
+		glGenVertexArrays(1, &_fbo);
+		glBindVertexArray(_fbo);
 		glUseProgram(shaderProgram);
 
-		front->draw(shaderProgram, modelview, projection);
+		front->draw(shaderProgram, modelview, projection, texture);
+		left->draw(shaderProgram, modelview, projection, texture);
+		bottom->draw(shaderProgram, modelview, projection, texture);
 
-		left->draw(shaderProgram, modelview, projection);
-
-		bottom->draw(shaderProgram, modelview, projection);
-
+		glfwSwapBuffers(window);
 		/*if (whatToDisplay == 1 || whatToDisplay == 2) {
 			if (testSkybox) {
 				test->draw(shaderProgram, modelview, projection);
