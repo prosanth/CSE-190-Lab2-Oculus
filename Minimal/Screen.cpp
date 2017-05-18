@@ -6,7 +6,7 @@
 Screen::Screen(int face)
 {
 	toWorld = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	setUpSkybox(skybox);
+	//setUpSkybox(skybox);
 
 	this->skybox = skybox;
 	this->face = face;
@@ -50,7 +50,7 @@ Screen::~Screen()
 	glDeleteBuffers(1, &EBO);
 }
 
-void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection)
+void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection, GLuint texture)
 {
 	glm::mat4 newmv;
 
@@ -65,10 +65,19 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 	glUniformMatrix4fv(uProjection, 1, GL_FALSE, &projection[0][0]);
 	glUniformMatrix4fv(uModelview, 1, GL_FALSE, &newmv[0][0]);
 
-	glBindVertexArray(VAO);
+	/*glBindVertexArray(VAO);
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(glGetUniformLocation(shaderProgram, "skybox"), 0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);*/
+
+	glBindVertexArray(VAO);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	// Set our "renderedTexture" sampler to user Texture Unit 0
+	glUniform1i(glGetUniformLocation(shaderProgram, "renderedTexture"), 0);
+	glUniform1f(glGetUniformLocation(shaderProgram, "time"), (float)(glfwGetTime()*10.0f));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 

@@ -8,6 +8,9 @@ Cube::Cube(bool skybox, bool left, bool loadTest)
 	if (!skybox) {
 		toWorld = glm::mat4(1.0f) *  glm::scale(glm::mat4(1.0f), glm::vec3(0.05f, 0.05f, 0.05f));
 		toWorld = toWorld * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
+		moveX = 0.0f;
+		moveY = 0.0f;
+		moveZ = -10.0f;
 		setUpSkybox(skybox);
 	}
 	else {
@@ -268,5 +271,30 @@ void Cube::changeSize(bool increase, bool decrease, bool default) {
 		this->height = 30;
 	}
 
+}
+
+void Cube::move(int leftright, int forwardback, int updown) {
+	if(leftright == 1) {
+		moveX-=0.05;
+	}
+	else if(leftright == 2) {
+		moveX+= 0.05;
+	}
+
+	if (forwardback == 1) {
+		moveZ -= 0.05;
+	}
+	else if (forwardback == 2) {
+		moveZ+= 0.05;
+	}
+
+	if (updown == 1) {
+		moveY += 0.05;
+	}
+	else if (updown == 2) {
+		moveY -= 0.05;
+	}
+
+	toWorld = toWorld * glm::translate(glm::mat4(1.0f), glm::vec3(moveX, moveY, moveZ));
 }
 

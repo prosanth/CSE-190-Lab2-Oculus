@@ -38,15 +38,23 @@ int renderMode = 0; //Button A (stereo-0, mono-1, left-2, right-3)
 int whatToDisplay = 0; //Button X (cube-0, panorama-1, both-2)
 int trackingMode = 0; //Button B (both-0, orientation-1, position-2, none-3)
 
-bool aPressed = false;
+
 bool xPressed = false;
-bool bPressed = false;
+
 bool lThumbPressed = false;
 bool rThumbPressed = false;
-bool lThumbDec = false;
-bool lThumbInc = false;
+
+//Oculus Touch input
+bool aPressed = false;
+bool bPressed = false;
 bool rThumbDec = false;
 bool rThumbInc = false;
+bool lThumbMoveLeft = false;
+bool lThumbMoveRight = false;
+bool lThumbMoveForw = false;
+bool lThumbMoveBack = false;
+bool rThumbMoveUp = false;
+bool rThumbMoveDown = false;
 
 glm::mat4 leftPos;
 glm::mat4 rightPos;
@@ -59,6 +67,15 @@ glm::vec3 eyeOffsetDefault;
 
 glm::mat4 originalHeadPose, newHeadPose = glm::mat4(1.0f);
 glm::vec3 posVector = glm::vec3(0.0f, 0.0f, 0.0f);
+
+GLuint FBquad;
+GLuint texquad;
+GLuint newFB = 0;
+GLuint texture;
+GLuint depth;
+
+//GLuint _fbo{ 0 };
+//GLuint _depthBuffer{ 0 };
 
 bool testSkybox = false;
 
@@ -504,57 +521,7 @@ public:
 				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
 				_renderTargetSize.x += eyeSize.w;
 		});
-			/*if (renderMode == 0 || renderMode == 1) {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[eye] = ovr::toGlm(ovrPerspectiveProjection);
-				eyeOffsetDefault = ovr::toGlm(erd.HmdToEyeOffset);
-				_viewScaleDesc.HmdToEyeOffset[eye] = ovr::fromGlm(ovr::toGlm(erd.HmdToEyeOffset) + eyeOffsetDelta);
-
-				char buff[100];
-				sprintf_s(buff, "Offset: %f\n", _viewScaleDesc.HmdToEyeOffset[eye].x);
-				OutputDebugStringA(buff);
-
-				ovrFovPort & fov = _sceneLayer.Fov[eye] = _eyeRenderDescs[eye].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, eye, fov, 1.0f);
-				_sceneLayer.Viewport[eye].Size = eyeSize;
-				_sceneLayer.Viewport[eye].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-			else if (renderMode == 2) {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[0] = ovr_GetRenderDesc(_session, ovrEyeType::ovrEye_Left, _hmdDesc.DefaultEyeFov[0]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[0] = ovr::toGlm(ovrPerspectiveProjection);
-				_viewScaleDesc.HmdToEyeOffset[0] = erd.HmdToEyeOffset;
-
-				ovrFovPort & fov = _sceneLayer.Fov[0] = _eyeRenderDescs[0].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, ovrEyeType::ovrEye_Left, fov, 1.0f);
-				_sceneLayer.Viewport[0].Size = eyeSize;
-				_sceneLayer.Viewport[0].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-			else {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[1] = ovr_GetRenderDesc(_session, ovrEyeType::ovrEye_Right, _hmdDesc.DefaultEyeFov[1]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[1] = ovr::toGlm(ovrPerspectiveProjection);
-				_viewScaleDesc.HmdToEyeOffset[1] = erd.HmdToEyeOffset;
-
-				ovrFovPort & fov = _sceneLayer.Fov[1] = _eyeRenderDescs[1].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, ovrEyeType::ovrEye_Right, fov, 1.0f);
-				_sceneLayer.Viewport[1].Size = eyeSize;
-				_sceneLayer.Viewport[1].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-		});*/
+		
 		// Make the on screen window 1/4 the resolution of the render target
 		_mirrorSize = _renderTargetSize;
 		_mirrorSize /= 4;
@@ -630,6 +597,8 @@ protected:
 			FAIL("Could not create mirror texture");
 		}
 		glGenFramebuffers(1, &_mirrorFbo);
+
+		glGenFramebuffers(1, &FBquad);
 	}
 
 	void onKey(int key, int scancode, int action, int mods) override {
@@ -656,39 +625,66 @@ protected:
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		//glGenFramebuffers(1, &newFB);
 		ovr::for_each_eye([&](ovrEyeType eye) {
-
-
 			ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
-			//Set to default
-			if (rThumbPressed) {
-				_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
-			}
-			//Change eyeoffset based on delta
-			else {
-				if (eye == ovrEyeType::ovrEye_Left) {
-					_viewScaleDesc.HmdToEyeOffset[eye] = ovr::fromGlm(ovr::toGlm(erd.HmdToEyeOffset) + eyeOffsetDelta);
-				}
-				else {
-					_viewScaleDesc.HmdToEyeOffset[eye] = ovr::fromGlm(ovr::toGlm(erd.HmdToEyeOffset) - eyeOffsetDelta);
-				}
-			}
+			_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
+						
+			//Quad Framebuffer
+			glBindFramebuffer(GL_FRAMEBUFFER, FBquad);
+			glGenTextures(1, &texquad);
+			glBindTexture(GL_TEXTURE_2D, texquad);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texquad, 0);
 
+			GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+			glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				return;
+			}
+			
 
+			glBindFramebuffer(GL_FRAMEBUFFER, FBquad);
+			glViewport(0, 0, 1000, 1000); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//draw to texture (need to change projections)
+			renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			//Render buffer
+			GLuint rboId;
+			glGenRenderbuffers(1, &rboId);
+			glBindRenderbuffer(GL_RENDERBUFFER, rboId);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,1000, 1000);
+			glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, // 1. fbo target: GL_FRAMEBUFFER
+				GL_DEPTH_ATTACHMENT, // 2. attachment point
+				GL_RENDERBUFFER, // 3. rbo target: GL_RENDERBUFFER
+				rboId); // 4. rbo ID
+
+			//Go back to Oculus Framebuffer
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+			glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
+			//glViewport(0, 0, 12000, 12000);
 
 			//STEREO 
-			if (renderMode == 0) {
-												
+			if (renderMode == 0) {					
 				const auto& vp = _sceneLayer.Viewport[eye];
 				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 				_sceneLayer.RenderPose[eye] = eyePoses[eye];
 				//no tracking
 				if(trackingMode == 3){
 					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], leftPose, eye);
+						renderScene(_eyeProjections[eye], leftPose, eye, false);
 					}
 					else {
-						renderScene(_eyeProjections[eye], rightPose, eye);
+						renderScene(_eyeProjections[eye], rightPose, eye, false);
 					}
 				}
 				//orientation only
@@ -697,7 +693,7 @@ protected:
 					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
 					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
 					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					renderScene(_eyeProjections[eye], newHeadPose, eye);
+					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
 				}
 				//position only
 				else if (trackingMode == 2) {
@@ -705,11 +701,11 @@ protected:
 					posVector = ovr::toGlm(eyePoses[eye].Position);
 					glm::mat4 identity = mat4(1.0f);
 					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					renderScene(_eyeProjections[eye], newHeadPose, eye);
+					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
 				}
 				//both
 				else {
-					renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
+					renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, false);
 				}
 			}
 			//MONO
@@ -718,12 +714,10 @@ protected:
 				const auto& vp = _sceneLayer.Viewport[eye];
 				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				
-				
 
 				//no tracking
 				if (trackingMode == 3) {
-					renderScene(_eyeProjections[ovrEye_Left], leftPose, ovrEye_Left);
+					renderScene(_eyeProjections[ovrEye_Left], leftPose, ovrEye_Left, false);
 				}
 				//orientation only
 				else if (trackingMode == 1) {
@@ -731,7 +725,7 @@ protected:
 					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
 					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
 					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					renderScene(_eyeProjections[ovrEye_Left], newHeadPose, ovrEye_Left);
+					renderScene(_eyeProjections[ovrEye_Left], newHeadPose, ovrEye_Left, false);
 				}
 				//position only
 				else if (trackingMode == 2) {
@@ -739,98 +733,14 @@ protected:
 					posVector = ovr::toGlm(eyePoses[eye].Position);
 					glm::mat4 identity = mat4(1.0f);
 					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					renderScene(_eyeProjections[eye], newHeadPose, eye);
+					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
 				}
 				//both
 				else {
-					renderScene(_eyeProjections[ovrEye_Left], ovr::toGlm(eyePoses[ovrEye_Left]), ovrEye_Left);
+					renderScene(_eyeProjections[ovrEye_Left], ovr::toGlm(eyePoses[ovrEye_Left]), ovrEye_Left, false);
 				}
 			}
-			//LEFT EYE ONLY
-			else if (renderMode == 2) { 
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-								
-				//no tracking
-				if (trackingMode == 3) {
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[ovrEye_Left], leftPose, ovrEye_Left);
-					}
-				}
-				//orientation only
-				else if (trackingMode == 1) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose = glm::translate(glm::mat4(1.0f), posVector) * newHeadPose;
-					char buff[100];
-					//sprintf_s(buff, "Offset: %f %f %f\n", posVector.x, posVector.y, posVector.z);
-					//OutputDebugStringA(buff);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//both
-				else {
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-					}
-				}
-				
-				
-			}
-			//RIGHT EYE ONLY
-			else {
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				
-				//no tracking
-				if (trackingMode == 3) {
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], rightPose, eye);
-					}
-				}
-				//orientation only
-				else if (trackingMode == 1) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//both
-				else {
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-					}
-				}
-				
-				
-			}
+			
 			//if only orientation, save last position
 			if (trackingMode != 1) {
 				posVector = ovr::toGlm(eyePoses[eye].Position);
@@ -840,6 +750,7 @@ protected:
 				//OutputDebugStringA(buff);
 			}
 		});
+
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		ovr_CommitTextureSwapChain(_session, _eyeTexture);
@@ -861,7 +772,7 @@ protected:
 		
 	}
 
-	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) = 0;
+	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, bool renderTexture) = 0;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -955,7 +866,7 @@ struct ColorCubeScene {
 	GLuint instanceCount;
 	oglplus::Buffer instances;
 
-	GLuint shaderProgram;
+	GLuint shaderProgram, texShader;
 	Cube * cube2;
 
 	Cube * rightSkybox;
@@ -966,8 +877,6 @@ struct ColorCubeScene {
 	Screen * left;
 	Screen * bottom;
 
-	// VBOs for the cube's vertices and normals
-
 	const unsigned int GRID_SIZE{ 5 };
 
 public:
@@ -976,6 +885,7 @@ public:
 
 		// Load the shader program
 		shaderProgram = LoadShaders("./skyboxshader.vert", "./skyboxshader.frag");
+		texShader = LoadShaders("./textureShader.vert", "textureShader.frag");
 		
 		cube2 = new Cube(false, false, false);
 
@@ -992,15 +902,40 @@ public:
 		//caveScreens.push_back(bottom);
 	}
 
-	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
-		glUseProgram(shaderProgram);
+	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye, bool renderTexture) {
+		if (renderTexture) {
+			glUseProgram(texShader);
+			//Change size
+			if (rThumbInc) cube2->changeSize(true, false, false);
+			else if (rThumbDec) cube2->changeSize(false, true, false);
+			
+			//Move cube
+			if (lThumbMoveLeft)	cube2->move(1, 0, 0);
+			else if (lThumbMoveRight) cube2->move(2, 0, 0);
+			else if (lThumbMoveBack) cube2->move(0, 2, 0);
+			else if (lThumbMoveForw) cube2->move(0, 1, 0);
+			else if (rThumbMoveDown) cube2->move(0, 0, 2);
+			else if (rThumbMoveUp) cube2->move(0, 0, 1);
 
-		front->draw(shaderProgram, modelview, projection);
+			leftSkybox->draw(shaderProgram, modelview, projection);
+			cube2->draw(shaderProgram, modelview, projection);
+		}
+		else {
+			glUseProgram(shaderProgram);
+			front->draw(shaderProgram, modelview, projection, texquad);
+			left->draw(shaderProgram, modelview, projection, texquad);
+			bottom->draw(shaderProgram, modelview, projection, texquad);
 
-		left->draw(shaderProgram, modelview, projection);
-
-		bottom->draw(shaderProgram, modelview, projection);
-
+			char buff[100];
+			if (eye == ovrEye_Left) {
+				sprintf_s(buff, "l \n");
+				//OutputDebugStringA(buff);
+			}
+			else {
+				sprintf_s(buff, "r \n");
+				//OutputDebugStringA(buff);
+			}
+		}
 		/*if (whatToDisplay == 1 || whatToDisplay == 2) {
 			if (testSkybox) {
 				test->draw(shaderProgram, modelview, projection);
@@ -1050,7 +985,7 @@ public:
 protected:
 	void initGl() override {
 		RiftApp::initGl();
-		glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+		glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		ovr_RecenterTrackingOrigin(_session);
 		cubeScene = std::shared_ptr<ColorCubeScene>(new ColorCubeScene());
@@ -1061,7 +996,7 @@ protected:
 	}
 
 
-	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) override {
+	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, bool renderTexture) override {
 		//OCULUS TOUCH 
 
 		// determine whether left hand trigger pressed
@@ -1071,26 +1006,60 @@ protected:
 
 		if (OVR_SUCCESS(ovr_GetInputState(_session, ovrControllerType_Touch, &inputState))) {
 
-			if (inputState.IndexTrigger[ovrHand_Left] > 0.5f) {
+			/*if (inputState.IndexTrigger[ovrHand_Left] > 0.5f) {
 				leftHandTriggerPressed = true;
 			}
 			if (inputState.IndexTrigger[ovrHand_Right] > 0.5f) {
 				rightHandTriggerPressed = true;
-			}
-			if (inputState.Thumbstick[ovrHand_Left].x < -0.8f) {
+			}*/
+
+			//CHANGING CUBE SIZE (Right stick, left-right)
+			if (inputState.Thumbstick[ovrHand_Right].x < -0.8f) {
 				//decrease cube size
-				lThumbDec = true;
+				rThumbDec = true;
+			}
+			else if (inputState.Thumbstick[ovrHand_Right].x > 0.8f) {
+				//increase cube size
+				rThumbInc = true;
+			}			
+			//MOVING CUBE (Left stick, forward-back, left-right, Right stick, up-down)
+			else if (inputState.Thumbstick[ovrHand_Left].x < -0.8f) {
+				//move cube left
+				lThumbMoveLeft = true;
 			}
 			else if (inputState.Thumbstick[ovrHand_Left].x > 0.8f) {
-				//increase cube size
-				lThumbInc = true;
+				//move cube right
+				lThumbMoveRight = true;
+			}
+			else if (inputState.Thumbstick[ovrHand_Left].y < -0.8f) {
+				//move cube back
+				lThumbMoveBack = true;
+			}
+			else if (inputState.Thumbstick[ovrHand_Left].y > 0.8f) {
+				//move cube forward
+				lThumbMoveForw = true;
+			}
+			else if (inputState.Thumbstick[ovrHand_Right].y < -0.8f) {
+				//move cube down
+				rThumbMoveDown = true;
+			}
+			else if (inputState.Thumbstick[ovrHand_Right].y > 0.8f) {
+				//move cube up
+				rThumbMoveUp = true;
 			}
 			else {
-				lThumbDec = false;
-				lThumbInc = false;
+				rThumbDec = false;
+				rThumbInc = false;
+				lThumbMoveLeft = false;
+				lThumbMoveRight = false;
+				lThumbMoveForw = false;
+				lThumbMoveBack = false;
+				rThumbMoveUp = false;
+				rThumbMoveDown = false;
 			}
 
-			if (inputState.Thumbstick[ovrHand_Right].x < -0.8f) {
+
+			/*if (inputState.Thumbstick[ovrHand_Right].x < -0.8f) {
 				//decrease cube size
 				if(eyeOffsetDelta.x >= -5*eyeOffsetDefault.x)	eyeOffsetDelta.x = eyeOffsetDelta.x - 0.002;
 
@@ -1105,7 +1074,7 @@ protected:
 				char buff[100];
 				//sprintf_s(buff, "Offset: %f\n", eyeOffsetDelta.x);
 				//OutputDebugStringA(buff);
-			}
+			}*/
 			
 
 			if (inputState.Buttons & ovrButton_A) {
@@ -1120,29 +1089,7 @@ protected:
 					ovr_SetControllerVibration(_session, ovrControllerType_RTouch, 0.0f, 1.0f);
 				}
 			}
-			else if (inputState.Buttons & ovrButton_X) {
-				if (xPressed == false) {
-					xPressed = true;
-
-					if (whatToDisplay == 1) {
-						if (testSkybox == false) {
-							testSkybox = true;
-						}
-						else {
-							whatToDisplay = (whatToDisplay + 1) % 3;
-							testSkybox = false;
-						}
-					}
-					else {
-						whatToDisplay = (whatToDisplay + 1) % 3;
-					}
-
-
-					char buff[100];
-					sprintf_s(buff, "What to Display: %d\n", whatToDisplay);
-					OutputDebugStringA(buff);
-				}
-			}
+			
 			else if (inputState.Buttons & ovrButton_B) {
 				if (bPressed == false) {
 					bPressed = true;
@@ -1199,7 +1146,7 @@ protected:
 
 		//ovrPosef headPose = trackState.HeadPose.ThePose;
 
-		cubeScene->render(projection, glm::inverse(headPose), eye);
+		cubeScene->render(projection, glm::inverse(headPose), eye, renderTexture);
 	}
 };
 

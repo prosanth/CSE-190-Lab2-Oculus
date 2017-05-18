@@ -24,6 +24,7 @@ public:
 	glm::mat4 toWorld;
 	int width;
 	int height;
+	float moveX, moveY, moveZ;
 	bool skybox;
 
 	void draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection);
@@ -32,6 +33,7 @@ public:
 	void loadBearLeftEye();
 	void loadTest();
 	void changeSize(bool increase, bool decrease, bool default);
+	void move(int leftright, int forwardback, int updown);
 
 	// These variables are needed for the shader program
 	GLuint VBO, VAO, EBO;
