@@ -62,7 +62,7 @@ glm::vec3 posVector = glm::vec3(0.0f, 0.0f, 0.0f);
 
 bool testSkybox = false;
 
-std::vector<Screen*> caveScreens;
+//std::vector<Screen*> caveScreens;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -645,7 +645,7 @@ protected:
 	void draw() final override {
 		ovrPosef eyePoses[2];
 		
-		Screen 
+		//Screen 
 
 		ovr_GetEyePoses(_session, frame, true, _viewScaleDesc.HmdToEyeOffset, eyePoses, &_sceneLayer.SensorSampleTime);
 
@@ -987,9 +987,9 @@ public:
 		front = new Screen(0);
 		left = new Screen(1);
 		bottom = new Screen(2);
-		caveScreens.push_back(front);
-		caveScreens.push_back(left);
-		caveScreens.push_back(bottom);
+		// caveScreens.push_back(front);
+		//caveScreens.push_back(left);
+		//caveScreens.push_back(bottom);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
