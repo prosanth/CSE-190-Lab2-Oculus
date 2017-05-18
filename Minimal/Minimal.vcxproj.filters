@@ -48,6 +48,12 @@
     <None Include="skyboxshader.vert">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="textureShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="textureShader.vert">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Mesh.h">

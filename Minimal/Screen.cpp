@@ -68,16 +68,21 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 	GLuint texID = glGetUniformLocation(shaderProgram, "renderedTexture");
 	GLuint timeID = glGetUniformLocation(shaderProgram, "time");
 
-	
-
 	glBindVertexArray(VAO);
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(glGetUniformLocation(shaderProgram, "skybox"), 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	/*glBindVertexArray(VAO);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 	// Set our "renderedTexture" sampler to user Texture Unit 0
 	glUniform1i(texID, 0);
 	glUniform1f(timeID, (float)(glfwGetTime()*10.0f));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
+	glBindVertexArray(0);*/
 
 	if (skybox) {
 		glDepthMask(GL_TRUE);

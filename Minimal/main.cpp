@@ -65,7 +65,8 @@ bool testSkybox = false;
 
 std::vector<Screen*> caveScreens;
 
-GLuint newFB;
+GLuint FBright, FBleft;
+GLuint newFB = 0;
 GLuint texture;
 GLuint depth;
 
@@ -511,57 +512,7 @@ public:
 				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
 				_renderTargetSize.x += eyeSize.w;
 		});
-			/*if (renderMode == 0 || renderMode == 1) {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[eye] = ovr::toGlm(ovrPerspectiveProjection);
-				eyeOffsetDefault = ovr::toGlm(erd.HmdToEyeOffset);
-				_viewScaleDesc.HmdToEyeOffset[eye] = ovr::fromGlm(ovr::toGlm(erd.HmdToEyeOffset) + eyeOffsetDelta);
-
-				char buff[100];
-				sprintf_s(buff, "Offset: %f\n", _viewScaleDesc.HmdToEyeOffset[eye].x);
-				OutputDebugStringA(buff);
-
-				ovrFovPort & fov = _sceneLayer.Fov[eye] = _eyeRenderDescs[eye].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, eye, fov, 1.0f);
-				_sceneLayer.Viewport[eye].Size = eyeSize;
-				_sceneLayer.Viewport[eye].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-			else if (renderMode == 2) {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[0] = ovr_GetRenderDesc(_session, ovrEyeType::ovrEye_Left, _hmdDesc.DefaultEyeFov[0]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[0] = ovr::toGlm(ovrPerspectiveProjection);
-				_viewScaleDesc.HmdToEyeOffset[0] = erd.HmdToEyeOffset;
-
-				ovrFovPort & fov = _sceneLayer.Fov[0] = _eyeRenderDescs[0].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, ovrEyeType::ovrEye_Left, fov, 1.0f);
-				_sceneLayer.Viewport[0].Size = eyeSize;
-				_sceneLayer.Viewport[0].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-			else {
-				ovrEyeRenderDesc& erd = _eyeRenderDescs[1] = ovr_GetRenderDesc(_session, ovrEyeType::ovrEye_Right, _hmdDesc.DefaultEyeFov[1]);
-				ovrMatrix4f ovrPerspectiveProjection =
-					ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
-				_eyeProjections[1] = ovr::toGlm(ovrPerspectiveProjection);
-				_viewScaleDesc.HmdToEyeOffset[1] = erd.HmdToEyeOffset;
-
-				ovrFovPort & fov = _sceneLayer.Fov[1] = _eyeRenderDescs[1].Fov;
-				auto eyeSize = ovr_GetFovTextureSize(_session, ovrEyeType::ovrEye_Right, fov, 1.0f);
-				_sceneLayer.Viewport[1].Size = eyeSize;
-				_sceneLayer.Viewport[1].Pos = { (int)_renderTargetSize.x, 0 };
-
-				_renderTargetSize.y = std::max(_renderTargetSize.y, (uint32_t)eyeSize.h);
-				_renderTargetSize.x += eyeSize.w;
-			}
-		});*/
+			
 		// Make the on screen window 1/4 the resolution of the render target
 		_mirrorSize = _renderTargetSize;
 		_mirrorSize /= 4;
@@ -628,6 +579,8 @@ protected:
 		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
+		//glGenFramebuffers(1, &newFB);
+
 		ovrMirrorTextureDesc mirrorDesc;
 		memset(&mirrorDesc, 0, sizeof(mirrorDesc));
 		mirrorDesc.Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB;
@@ -661,12 +614,14 @@ protected:
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		ovr::for_each_eye([&](ovrEyeType eye) {
 
+		//glGenFramebuffers(1, &newFB);
+
+		ovr::for_each_eye([&](ovrEyeType eye) {
 
 			ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
 			//Set to default
-			if (rThumbPressed) {
+			/* if (rThumbPressed) {
 				_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
 			}
 			//Change eyeoffset based on delta
@@ -677,18 +632,61 @@ protected:
 				else {
 					_viewScaleDesc.HmdToEyeOffset[eye] = ovr::fromGlm(ovr::toGlm(erd.HmdToEyeOffset) - eyeOffsetDelta);
 				}
+			} */
+
+			/*glGenFramebuffers(1, &newFB);
+			glBindFramebuffer(GL_FRAMEBUFFER, newFB);
+
+			GLuint texture;
+			glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+						
+
+			glGenRenderbuffers(1, &depth);
+			glBindRenderbuffer(GL_RENDERBUFFER, depth);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
+			glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, // 1. fbo target: GL_FRAMEBUFFER
+				GL_DEPTH_ATTACHMENT, // 2. attachment point
+				GL_RENDERBUFFER, // 3. rbo target: GL_RENDERBUFFER
+				depth);
+
+		
+			GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+			glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				return;
 			}
+						
+			glBindFramebuffer(GL_FRAMEBUFFER, newFB);
+			glViewport(0, 0, 1000, 1000); // Render on the whole framebuffer, complete from the lower left corner to the upper right
 
 
+			renderScene(_eyeProjections[eye], leftPose, eye, true);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
+
+			/*glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);*/
 
 			//STEREO 
 			if (renderMode == 0) {
-												
+
 				const auto& vp = _sceneLayer.Viewport[eye];
 				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				//no tracking
-				if(trackingMode == 3){
+				/*//no tracking
+				if (trackingMode == 3) {
 					if (eye == ovrEyeType::ovrEye_Left) {
 						renderScene(_eyeProjections[eye], leftPose, eye);
 					}
@@ -697,7 +695,7 @@ protected:
 					}
 				}
 				//orientation only
-				else if (trackingMode == 1) {					
+				else if (trackingMode == 1) {
 					originalHeadPose = ovr::toGlm(eyePoses[eye]);
 					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
 					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
@@ -713,18 +711,18 @@ protected:
 					renderScene(_eyeProjections[eye], newHeadPose, eye);
 				}
 				//both
-				else {
-					renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-				}
+				else {*/
+					renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, false);
+				//}
 			}
 			//MONO
-			else if (renderMode == 1) {
+			/*else if (renderMode == 1) {
 
 				const auto& vp = _sceneLayer.Viewport[eye];
 				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				
-				
+
+
 
 				//no tracking
 				if (trackingMode == 3) {
@@ -750,100 +748,8 @@ protected:
 				else {
 					renderScene(_eyeProjections[ovrEye_Left], ovr::toGlm(eyePoses[ovrEye_Left]), ovrEye_Left);
 				}
-			}
-			//LEFT EYE ONLY
-			else if (renderMode == 2) { 
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-								
-				//no tracking
-				if (trackingMode == 3) {
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[ovrEye_Left], leftPose, ovrEye_Left);
-					}
-				}
-				//orientation only
-				else if (trackingMode == 1) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose = glm::translate(glm::mat4(1.0f), posVector) * newHeadPose;
-					char buff[100];
-					//sprintf_s(buff, "Offset: %f %f %f\n", posVector.x, posVector.y, posVector.z);
-					//OutputDebugStringA(buff);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//both
-				else {
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-					}
-				}
-				
-				
-			}
-			//RIGHT EYE ONLY
-			else {
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				
-				//no tracking
-				if (trackingMode == 3) {
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], rightPose, eye);
-					}
-				}
-				//orientation only
-				else if (trackingMode == 1) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], newHeadPose, eye);
-					}
-				}
-				//both
-				else {
-					if (eye == ovrEyeType::ovrEye_Right) {
-						renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-					}
-				}
-				
-				
-			}
-			//if only orientation, save last position
-			if (trackingMode != 1) {
-				posVector = ovr::toGlm(eyePoses[eye].Position);
+			}*/
 
-				char buff[100];
-				//sprintf_s(buff, "trackmode Offset: %f %f %f %f\n", eye, posVector.x, posVector.y, posVector.z);
-				//OutputDebugStringA(buff);
-			}
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -866,7 +772,7 @@ protected:
 		
 	}
 
-	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) = 0;
+	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, bool renderScene) = 0;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -996,63 +902,34 @@ public:
 		caveScreens.push_back(front);
 		caveScreens.push_back(left);
 		caveScreens.push_back(bottom);
+	}
 
-		glGenFramebuffers(1, &newFB);
-		glBindFramebuffer(GL_FRAMEBUFFER, newFB);
-
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-		glGenRenderbuffers(1, &depth);
-		glBindRenderbuffer(GL_RENDERBUFFER, depth);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
-		glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, // 1. fbo target: GL_FRAMEBUFFER
-			GL_DEPTH_ATTACHMENT, // 2. attachment point
-			GL_RENDERBUFFER, // 3. rbo target: GL_RENDERBUFFER
-			depth);
-
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
-
-		GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
-		glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			return;
-		}
+	void renderTexture(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
+		glUseProgram(texShader);
+		cube2->draw(texShader, modelview, projection);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
-		glBindFramebuffer(GL_FRAMEBUFFER, newFB);
-		glViewport(0, 0, 1024, 768);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glBindFramebuffer(GL_FRAMEBUFFER, newFB);
+		//glViewport(0, 0, 1024, 768);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glUseProgram(texShader);
-
-		cube2->draw(texShader, modelview, projection);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		char buff[100];
 		sprintf_s(buff, "drawing to new framebuffer\n");
 		OutputDebugStringA(buff);
 
-		glGenVertexArrays(1, &_fbo);
+		/*glGenVertexArrays(1, &_fbo);
 		glBindVertexArray(_fbo);
-		glUseProgram(shaderProgram);
+		glUseProgram(shaderProgram);*/
 
 		front->draw(shaderProgram, modelview, projection, texture);
 		left->draw(shaderProgram, modelview, projection, texture);
 		bottom->draw(shaderProgram, modelview, projection, texture);
 
-		glfwSwapBuffers(window);
+		//glfwSwapBuffers(window);
 		/*if (whatToDisplay == 1 || whatToDisplay == 2) {
 			if (testSkybox) {
 				test->draw(shaderProgram, modelview, projection);
@@ -1102,7 +979,7 @@ public:
 protected:
 	void initGl() override {
 		RiftApp::initGl();
-		glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+		glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		ovr_RecenterTrackingOrigin(_session);
 		cubeScene = std::shared_ptr<ColorCubeScene>(new ColorCubeScene());
@@ -1113,7 +990,7 @@ protected:
 	}
 
 
-	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) override {
+	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, bool renderTexture) override {
 		//OCULUS TOUCH 
 
 		// determine whether left hand trigger pressed
@@ -1251,7 +1128,12 @@ protected:
 
 		//ovrPosef headPose = trackState.HeadPose.ThePose;
 
-		cubeScene->render(projection, glm::inverse(headPose), eye);
+		if (renderTexture) {
+			cubeScene->renderTexture(projection, glm::inverse(headPose), eye);
+		}
+		else {
+			cubeScene->render(projection, glm::inverse(headPose), eye);
+		}
 	}
 };
 

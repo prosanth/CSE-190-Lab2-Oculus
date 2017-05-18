@@ -146,6 +146,8 @@
     <None Include="shader.vert" />
     <None Include="skyboxshader.frag" />
     <None Include="skyboxshader.vert" />
+    <None Include="textureShader.frag" />
+    <None Include="textureShader.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cube.h" />
