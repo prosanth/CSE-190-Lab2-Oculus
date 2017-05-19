@@ -678,9 +678,9 @@ protected:
 			if(rTriggerPressed) pe = rightHandPosition;
 			else pe = ovr::toGlm(eyePoses[eye].Position);
 
-			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
-			pb = glm::vec3(1.2f, 1.2f, -1.2f);
-			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pa = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pb = glm::vec3(1.2f, -1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, 1.2f, -1.2f);
 			
 			//translate by these amounts
 			/*left -sqrt(pow(1.2,2) / 2)
@@ -690,9 +690,9 @@ protected:
 			//pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
 			//pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
 			//pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
-			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
-			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
-			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
 
 			vr = glm::normalize(pb - pa);// / glm::length(pb - pa);
 			vu = glm::normalize(pc - pa);// / glm::length(pc - pa);
@@ -702,21 +702,9 @@ protected:
 			vb = pb - pe;
 			vc = pc - pe;
 
-			/*char buff[100];
-			sprintf_s(buff, "vr: %f %f %f\n", vr.x, vr.y, vr.z);
-			OutputDebugStringA(buff);
-
-			char buff2[100];
-			sprintf_s(buff2, "vu: %f %f %f\n", vu.x, vu.y, vu.z);
-			OutputDebugStringA(buff2);
-
-			char buff3[100];
-			sprintf_s(buff3, "vn: %f %f %f\n", vn.x, vn.y, vn.z);
-			OutputDebugStringA(buff3);*/
-
 			float d = -(glm::dot(vn,va));
 			float l, r, t, b;
-			float n = 0.01;
+			float n = 0.00000000000000001;
 
 			l = glm::dot(vr, va)*n / d;
 			r = glm::dot(vr, vb)*n / d;
@@ -765,16 +753,16 @@ protected:
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			//draw to texture (need to change projections)
-			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
-			pb = glm::vec3(1.2f, 1.2f, -1.2f);
-			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pa = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pb = glm::vec3(1.2f, -1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, 1.2f, -1.2f);
 
 			/*pa = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
 			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
 			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);*/
-			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
-			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
-			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
 
 			vr = glm::normalize(pb - pa);// / glm::length(pb - pa);
 			vu = glm::normalize(pc - pa);// / glm::length(pc - pa);
@@ -783,6 +771,37 @@ protected:
 			va = pa - pe;
 			vb = pb - pe;
 			vc = pc - pe;
+
+			char buff[100];
+			sprintf_s(buff, "pa %f %f %f\n", pa.x, pa.y, pa.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "pb %f %f %f\n", pb.x, pb.y, pb.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "pc %f %f %f\n", pc.x, pc.y, pc.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "pe %f %f %f\n", pe.x, pe.y, pe.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "vr: %f %f %f\n", vr.x, vr.y, vr.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "vu: %f %f %f\n", vu.x, vu.y, vu.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "vn: %f %f %f\n", vn.x, vn.y, vn.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "va: %f %f %f\n", va.x, va.y, va.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "vb: %f %f %f\n", vb.x, vb.y, vb.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "vc: %f %f %f\n", vc.x, vc.y, vc.z);
+			OutputDebugStringA(buff);
 
 			d = -1 * (glm::dot(vn, va));		
 
@@ -831,21 +850,21 @@ protected:
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			//draw to texture (need to change projections)
-			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
-			pb = glm::vec3(1.2f, 1.2f, -1.2f);
-			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pa = glm::vec3(-1.2f, -1.2f, -1.2f);
+			pb = glm::vec3(1.2f, -1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, 1.2f, -1.2f);
 
 			//pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pa, 1.0f);
 			//pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pb, 1.0f);
 			//pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pc, 1.0f);
 						
-			pa = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pa, 1.0f);
-			pb = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pb, 1.0f);
-			pc = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pc, 1.0f);
 
-			pa = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
-			pb = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
-			pc = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
 
 			/*char buff[100];
 			sprintf_s(buff, "pa %f %f %f\n", pa.x, pa.y, pa.z);
