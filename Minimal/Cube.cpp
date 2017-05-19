@@ -77,7 +77,6 @@ void Cube::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection)
 		newmv = modelview * toWorld;
 	}
 	
-
 	uProjection = glGetUniformLocation(shaderProgram, "projection");
 	uModelview = glGetUniformLocation(shaderProgram, "modelview");
 
@@ -257,44 +256,45 @@ void Cube::changeSize(bool increase, bool decrease, bool default) {
 	sprintf_s(buff, "change size: %d\n", height);
 	OutputDebugStringA(buff);
 
-	if (increase && this->height < 80) {
-		toWorld = toWorld *  glm::scale(glm::mat4(1.0f), glm::vec3(1.05f, 1.05f, 1.05f));
-		this->height++;
+	if (increase) {
+		toWorld = toWorld *  glm::scale(glm::mat4(1.0f), glm::vec3(1.01f, 1.01f, 1.01f));
 	}
-	else if(decrease && this->height >= 1) {
-		toWorld = toWorld *  glm::scale(glm::mat4(1.0f), glm::vec3(0.95f, 0.95f, 0.95f));
-		this->height--;
+	else if(decrease) {
+		toWorld = toWorld *  glm::scale(glm::mat4(1.0f), glm::vec3(0.99f, 0.99f, 0.99f));
 	}
 	else if (default) {
 		toWorld = glm::mat4(1.0f) *  glm::scale(glm::mat4(1.0f), glm::vec3(0.05f, 0.05f, 0.05f));
 		toWorld = toWorld * glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
-		this->height = 30;
 	}
-
 }
 
-void Cube::move(int leftright, int forwardback, int updown) {
-	if(leftright == 1) {
-		moveX-=0.05;
+void Cube::move(int leftright, int forwardback, int updown, bool default) {
+	
+	if (default) {
+		moveX = 0.0f;
+		moveY = 0.0f;
+		moveZ = -10.0f;
 	}
-	else if(leftright == 2) {
-		moveX+= 0.05;
+	
+	if (leftright == 1) {
+		toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(-0.01f, 0.0f, 0.0f)) * toWorld;
+		char buff[100];
+		sprintf_s(buff, "moving left \n");
+		OutputDebugStringA(buff);
 	}
+	else if (leftright == 2) {
+		toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(0.01f, 0.0f, 0.0f)) * toWorld;
+		char buff[100];
+		sprintf_s(buff, "moving right \n");
+		OutputDebugStringA(buff);
+	}
+	
+	if (forwardback == 1) toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.01f)) * toWorld;
+	else if (forwardback == 2)	toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.01f)) * toWorld;
 
-	if (forwardback == 1) {
-		moveZ -= 0.05;
-	}
-	else if (forwardback == 2) {
-		moveZ+= 0.05;
-	}
+	if (updown == 1) toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.01f, -0.0f)) * toWorld;
+	else if (updown == 2) toWorld = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * toWorld;
 
-	if (updown == 1) {
-		moveY += 0.05;
-	}
-	else if (updown == 2) {
-		moveY -= 0.05;
-	}
-
-	toWorld = toWorld * glm::translate(glm::mat4(1.0f), glm::vec3(moveX, moveY, moveZ));
+	
 }
 

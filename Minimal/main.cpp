@@ -38,8 +38,8 @@ int renderMode = 0; //Button A (stereo-0, mono-1, left-2, right-3)
 int whatToDisplay = 0; //Button X (cube-0, panorama-1, both-2)
 int trackingMode = 0; //Button B (both-0, orientation-1, position-2, none-3)
 
-
-bool xPressed = false;
+int skyboxMode = 0;
+int failure = -1;
 
 bool lThumbPressed = false;
 bool rThumbPressed = false;
@@ -47,6 +47,8 @@ bool rThumbPressed = false;
 //Oculus Touch input
 bool aPressed = false;
 bool bPressed = false;
+bool xPressed = false;
+bool yPressed = false;
 bool rThumbDec = false;
 bool rThumbInc = false;
 bool lThumbMoveLeft = false;
@@ -55,6 +57,13 @@ bool lThumbMoveForw = false;
 bool lThumbMoveBack = false;
 bool rThumbMoveUp = false;
 bool rThumbMoveDown = false;
+bool rTriggerPressed = false;
+
+
+
+bool headViewpoint = true;
+
+glm::vec3 rightHandPosition = glm::vec3(0.0f);
 
 glm::mat4 leftPos;
 glm::mat4 rightPos;
@@ -68,14 +77,13 @@ glm::vec3 eyeOffsetDefault;
 glm::mat4 originalHeadPose, newHeadPose = glm::mat4(1.0f);
 glm::vec3 posVector = glm::vec3(0.0f, 0.0f, 0.0f);
 
-GLuint FBquad;
-GLuint texquad;
+GLuint FBfront, FBleft, FBbottom;
+GLuint texFront, texLeft, texBottom;
 GLuint newFB = 0;
 GLuint texture;
 GLuint depth;
 
-//GLuint _fbo{ 0 };
-//GLuint _depthBuffer{ 0 };
+glm::vec2 screenSize;
 
 bool testSkybox = false;
 
@@ -205,6 +213,12 @@ void glDebugCallbackHandler(GLenum source, GLenum type, GLuint id, GLenum severi
 namespace glfw {
 	inline GLFWwindow * createWindow(const uvec2 & size, const ivec2 & position = ivec2(INT_MIN)) {
 		GLFWwindow * window = glfwCreateWindow(size.x, size.y, "glfw", nullptr, nullptr);
+		screenSize = glm::vec2(size.x, size.y);
+		
+		char buff[100];
+		sprintf_s(buff, "screen size: %f %f \n", screenSize.x, screenSize.y);
+		OutputDebugStringA(buff);
+
 		if (!window) {
 			FAIL("Unable to create rendering window");
 		}
@@ -598,7 +612,13 @@ protected:
 		}
 		glGenFramebuffers(1, &_mirrorFbo);
 
-		glGenFramebuffers(1, &FBquad);
+		glGenFramebuffers(1, &FBfront);
+		glGenFramebuffers(1, &FBleft);
+		glGenFramebuffers(1, &FBbottom);
+
+		glGenTextures(1, &texFront);
+		glGenTextures(1, &texLeft);
+		glGenTextures(1, &texBottom);
 	}
 
 	void onKey(int key, int scancode, int action, int mods) override {
@@ -625,34 +645,256 @@ protected:
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		//glGenFramebuffers(1, &newFB);
+
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			ovrEyeRenderDesc& erd = _eyeRenderDescs[eye] = ovr_GetRenderDesc(_session, eye, _hmdDesc.DefaultEyeFov[eye]);
 			_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
-						
-			//Quad Framebuffer
-			glBindFramebuffer(GL_FRAMEBUFFER, FBquad);
-			glGenTextures(1, &texquad);
-			glBindTexture(GL_TEXTURE_2D, texquad);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texquad, 0);
 
 			GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
 			glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
 			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 				return;
 			}
-			
 
-			glBindFramebuffer(GL_FRAMEBUFFER, FBquad);
+			//front Framebuffer
+			glBindFramebuffer(GL_FRAMEBUFFER, FBfront);
+
+			glBindTexture(GL_TEXTURE_2D, texFront);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texFront, 0);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, FBfront);
 			glViewport(0, 0, 1000, 1000); // Render on the whole framebuffer, complete from the lower left corner to the upper right
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			//draw to texture (need to change projections)
-			renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
+			glm::vec3 pa, pb, pc, pe;
+			glm::vec3 vr, vu, vn;
+			glm::vec3 va, vb, vc;
+			if(rTriggerPressed) pe = rightHandPosition;
+			else pe = ovr::toGlm(eyePoses[eye].Position);
+
+			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
+			pb = glm::vec3(1.2f, 1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+			
+			//translate by these amounts
+			/*left -sqrt(pow(1.2,2) / 2)
+			right sqrt(pow(1.2, 2) / 2)
+		    floor -1.2f, sqrt(pow(1.2, 2) / 2)*/
+
+			//pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			//pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			//pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-180.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+
+			vr = glm::normalize(pb - pa);// / glm::length(pb - pa);
+			vu = glm::normalize(pc - pa);// / glm::length(pc - pa);
+			vn = glm::normalize(glm::cross(vr, vu));// / glm::length(glm::cross(vr, vu));
+
+			va = pa - pe;
+			vb = pb - pe;
+			vc = pc - pe;
+
+			/*char buff[100];
+			sprintf_s(buff, "vr: %f %f %f\n", vr.x, vr.y, vr.z);
+			OutputDebugStringA(buff);
+
+			char buff2[100];
+			sprintf_s(buff2, "vu: %f %f %f\n", vu.x, vu.y, vu.z);
+			OutputDebugStringA(buff2);
+
+			char buff3[100];
+			sprintf_s(buff3, "vn: %f %f %f\n", vn.x, vn.y, vn.z);
+			OutputDebugStringA(buff3);*/
+
+			float d = -(glm::dot(vn,va));
+			float l, r, t, b;
+			float n = 0.01;
+
+			l = glm::dot(vr, va)*n / d;
+			r = glm::dot(vr, vb)*n / d;
+			b = glm::dot(vu, va)*n / d;
+			t = glm::dot(vu, vc)*n / d;
+
+			glm::mat4 proj = glm::frustum(l, r, b, t, n, d);	
+			glm::mat4 m = glm::mat4(glm::vec4(vr, 0.0f), glm::vec4(vu, 0.0f), glm::vec4(vn, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			glm::mat4 mT = glm::transpose(m);
+
+			glm::mat4 identity = mat4(1.0f);
+			glm::mat4 T = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(-pe, 1.0f));
+
+			glm::mat4 pPrime = proj*mT*T;
+			
+			if (failure == 0 && eye == ovrEye_Left) {
+			}
+			else if (failure == 1 && eye == ovrEye_Right) {
+			}
+			else {
+				if (eye == ovrEyeType::ovrEye_Left) {
+					renderScene(pPrime, leftPose, eye, true);
+				}
+				else {
+					renderScene(pPrime, rightPose, eye, true);
+				}
+			}
+
+			//renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			//left Framebuffer
+			glBindFramebuffer(GL_FRAMEBUFFER, FBleft);
+
+			glBindTexture(GL_TEXTURE_2D, texLeft);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texLeft, 0);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, FBleft);
+			glViewport(0, 0, 1000, 1000); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//draw to texture (need to change projections)
+			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
+			pb = glm::vec3(1.2f, 1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+
+			/*pa = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);*/
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(-270.0f - 45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+
+			vr = glm::normalize(pb - pa);// / glm::length(pb - pa);
+			vu = glm::normalize(pc - pa);// / glm::length(pc - pa);
+			vn = glm::normalize(glm::cross(vr, vu));// / glm::length(glm::cross(vr, vu));
+
+			va = pa - pe;
+			vb = pb - pe;
+			vc = pc - pe;
+
+			d = -1 * (glm::dot(vn, va));		
+
+			l = glm::dot(vr, va)*n / d;
+			r = glm::dot(vr, vb)*n / d;
+			b = glm::dot(vu, va)*n / d;
+			t = glm::dot(vu, vc)*n / d;
+
+			proj = glm::frustum(l, r, b, t, n, d);
+			m = glm::mat4(glm::vec4(vr, 0.0f), glm::vec4(vu, 0.0f), glm::vec4(vn, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			mT = glm::transpose(m);
+			
+			T = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(-pe, 1.0f));
+
+			pPrime = proj*mT*T;
+
+			if (failure == 2 && eye == ovrEye_Left) {
+			}
+			else if (failure == 3 && eye == ovrEye_Right) {
+			}
+			else {
+				if (eye == ovrEyeType::ovrEye_Left) {
+					renderScene(pPrime, leftPose, eye, true);
+				}
+				else {
+					renderScene(pPrime, rightPose, eye, true);
+				}
+			}
+			//renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			//bottom framebuffer
+			glBindFramebuffer(GL_FRAMEBUFFER, FBbottom);
+
+			glBindTexture(GL_TEXTURE_2D, texBottom);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texBottom, 0);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, FBbottom);
+			glViewport(0, 0, 1000, 1000); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//draw to texture (need to change projections)
+			pa = glm::vec3(-1.2f, 1.2f, -1.2f);
+			pb = glm::vec3(1.2f, 1.2f, -1.2f);
+			pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+
+			//pa = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			//pb = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			//pc = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+						
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+
+			pa = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pa, 1.0f);
+			pb = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pb, 1.0f);
+			pc = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(pc, 1.0f);
+
+			/*char buff[100];
+			sprintf_s(buff, "pa %f %f %f\n", pa.x, pa.y, pa.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "pb %f %f %f\n", pb.x, pb.y, pb.z);
+			OutputDebugStringA(buff);
+
+			sprintf_s(buff, "pc %f %f %f\n", pc.x, pc.y, pc.z);
+			OutputDebugStringA(buff);*/
+
+
+			vr = glm::normalize(pb - pa);// / glm::length(pb - pa);
+			vu = glm::normalize(pc - pa);// / glm::length(pc - pa);
+			vn = glm::normalize(glm::cross(vr, vu));// / glm::length(glm::cross(vr, vu));
+
+			va = pa - pe;
+			vb = pb - pe;
+			vc = pc - pe;
+
+			d = -1 * (glm::dot(vn, va));
+
+			l = glm::dot(vr, va)*n / d;
+			r = glm::dot(vr, vb)*n / d;
+			b = glm::dot(vu, va)*n / d;
+			t = glm::dot(vu, vc)*n / d;
+
+			proj = glm::frustum(l, r, b, t, n, d);
+			m = glm::mat4(glm::vec4(vr, 0.0f), glm::vec4(vu, 0.0f), glm::vec4(vn, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			mT = glm::transpose(m);
+
+			T = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(-pe, 1.0f));
+
+			pPrime = proj*mT*T;
+
+			if (failure == 4 && eye == ovrEye_Left) {
+			}
+			else if (failure == 5 && eye == ovrEye_Right) {
+			}
+			else {
+				if (eye == ovrEyeType::ovrEye_Left) {
+					renderScene(pPrime, leftPose, eye, true);
+				}
+				else {
+					renderScene(pPrime, rightPose, eye, true);
+				}
+			}
+
+			//renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -660,95 +902,21 @@ protected:
 			GLuint rboId;
 			glGenRenderbuffers(1, &rboId);
 			glBindRenderbuffer(GL_RENDERBUFFER, rboId);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,1000, 1000);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
 			glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, // 1. fbo target: GL_FRAMEBUFFER
-				GL_DEPTH_ATTACHMENT, // 2. attachment point
-				GL_RENDERBUFFER, // 3. rbo target: GL_RENDERBUFFER
-				rboId); // 4. rbo ID
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboId);
 
 			//Go back to Oculus Framebuffer
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
 			glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
-			//glViewport(0, 0, 12000, 12000);
 
 			//STEREO 
-			if (renderMode == 0) {					
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-				//no tracking
-				if(trackingMode == 3){
-					if (eye == ovrEyeType::ovrEye_Left) {
-						renderScene(_eyeProjections[eye], leftPose, eye, false);
-					}
-					else {
-						renderScene(_eyeProjections[eye], rightPose, eye, false);
-					}
-				}
-				//orientation only
-				else if (trackingMode == 1) {					
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = ovr::toGlm(eyePoses[eye]);
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
-				}
-				//both
-				else {
-					renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, false);
-				}
-			}
-			//MONO
-			else if (renderMode == 1) {
-
-				const auto& vp = _sceneLayer.Viewport[eye];
-				glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
-				_sceneLayer.RenderPose[eye] = eyePoses[eye];
-
-				//no tracking
-				if (trackingMode == 3) {
-					renderScene(_eyeProjections[ovrEye_Left], leftPose, ovrEye_Left, false);
-				}
-				//orientation only
-				else if (trackingMode == 1) {
-					originalHeadPose = leftPose;
-					newHeadPose = glm::mat4(glm::mat3(originalHeadPose));
-					newHeadPose *= glm::translate(glm::mat4(1.0f), posVector);
-					//newHeadPose[3] = glm::vec4(posVector, 1.0f);
-					renderScene(_eyeProjections[ovrEye_Left], newHeadPose, ovrEye_Left, false);
-				}
-				//position only
-				else if (trackingMode == 2) {
-					originalHeadPose = leftPose;
-					posVector = ovr::toGlm(eyePoses[eye].Position);
-					glm::mat4 identity = mat4(1.0f);
-					newHeadPose = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(posVector, 1.0f));
-					renderScene(_eyeProjections[eye], newHeadPose, eye, false);
-				}
-				//both
-				else {
-					renderScene(_eyeProjections[ovrEye_Left], ovr::toGlm(eyePoses[ovrEye_Left]), ovrEye_Left, false);
-				}
-			}
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 			
-			//if only orientation, save last position
-			if (trackingMode != 1) {
-				posVector = ovr::toGlm(eyePoses[eye].Position);
-
-				char buff[100];
-				//sprintf_s(buff, "trackmode Offset: %f %f %f %f\n", eye, posVector.x, posVector.y, posVector.z);
-				//OutputDebugStringA(buff);
-			}
+			renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, false);
+			
 		});
 
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
@@ -765,7 +933,7 @@ protected:
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
 		//save last left and right eye poses
-		if (trackingMode != 3) {
+		if (trackingMode != 1) {
 			leftPose = ovr::toGlm(eyePoses[ovrEye_Left]);
 			rightPose = ovr::toGlm(eyePoses[ovrEye_Right]);
 		}
@@ -866,7 +1034,7 @@ struct ColorCubeScene {
 	GLuint instanceCount;
 	oglplus::Buffer instances;
 
-	GLuint shaderProgram, texShader;
+	GLuint shaderProgram, texShader, skyboxShader;
 	Cube * cube2;
 
 	Cube * rightSkybox;
@@ -884,7 +1052,8 @@ public:
 		using namespace oglplus;
 
 		// Load the shader program
-		shaderProgram = LoadShaders("./skyboxshader.vert", "./skyboxshader.frag");
+		shaderProgram = LoadShaders("./shader.vert", "./shader.frag");
+		skyboxShader = LoadShaders("./skyboxshader.vert", "./skyboxshader.frag");
 		texShader = LoadShaders("./textureShader.vert", "textureShader.frag");
 		
 		cube2 = new Cube(false, false, false);
@@ -897,9 +1066,6 @@ public:
 		front = new Screen(0);
 		left = new Screen(1);
 		bottom = new Screen(2);
-		// caveScreens.push_back(front);
-		//caveScreens.push_back(left);
-		//caveScreens.push_back(bottom);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye, bool renderTexture) {
@@ -908,23 +1074,58 @@ public:
 			//Change size
 			if (rThumbInc) cube2->changeSize(true, false, false);
 			else if (rThumbDec) cube2->changeSize(false, true, false);
+
+			if(rThumbPressed) cube2->changeSize(false, false, true);
+			
 			
 			//Move cube
-			if (lThumbMoveLeft)	cube2->move(1, 0, 0);
-			else if (lThumbMoveRight) cube2->move(2, 0, 0);
-			else if (lThumbMoveBack) cube2->move(0, 2, 0);
-			else if (lThumbMoveForw) cube2->move(0, 1, 0);
-			else if (rThumbMoveDown) cube2->move(0, 0, 2);
-			else if (rThumbMoveUp) cube2->move(0, 0, 1);
+			if (lThumbMoveLeft)	cube2->move(1, 0, 0, false);
+			else if (lThumbMoveRight) cube2->move(2, 0, 0, false);
+			else if (lThumbMoveBack) cube2->move(0, 2, 0, false);
+			else if (lThumbMoveForw) cube2->move(0, 1, 0, false);
+			else if (rThumbMoveDown) cube2->move(0, 0, 2, false);
+			else if (rThumbMoveUp) cube2->move(0, 0, 1, false);
 
-			leftSkybox->draw(shaderProgram, modelview, projection);
-			cube2->draw(shaderProgram, modelview, projection);
+			if (lThumbPressed) cube2->move(0, 0, 0, true);
+
+			if (eye == ovrEyeType::ovrEye_Left) {
+				leftSkybox->draw(texShader, modelview, projection);
+			}
+			else {
+				rightSkybox->draw(texShader, modelview, projection);
+			}
+
+			cube2->draw(texShader, modelview, projection);
 		}
 		else {
+			glUseProgram(skyboxShader);
+			if (skyboxMode == 1) {
+				test->draw(skyboxShader, modelview, projection);
+			}
+
+			if (aPressed == true) {
+				front->debugOn = true;
+				left->debugOn = true;
+			}
+			else {
+				front->debugOn = false;
+			}
+
+			glm::vec3 eyePosition;
+			if(!rTriggerPressed) eyePosition = glm::vec3(modelview[3]);
+			else eyePosition = rightHandPosition;
+
 			glUseProgram(shaderProgram);
-			front->draw(shaderProgram, modelview, projection, texquad);
-			left->draw(shaderProgram, modelview, projection, texquad);
-			bottom->draw(shaderProgram, modelview, projection, texquad);
+			if (eye == ovrEyeType::ovrEye_Left) {
+				front->draw(shaderProgram, modelview, projection, texFront, false, aPressed, eyePosition);
+				left->draw(shaderProgram, modelview, projection, texLeft, false, aPressed, eyePosition);
+				bottom->draw(shaderProgram, modelview, projection, texBottom, false, aPressed, eyePosition);
+			}
+			else {
+				front->draw(shaderProgram, modelview, projection, texFront, true, aPressed, eyePosition);
+				left->draw(shaderProgram, modelview, projection, texLeft, true, aPressed, eyePosition);
+				bottom->draw(shaderProgram, modelview, projection, texBottom, true, aPressed, eyePosition);
+			}
 
 			char buff[100];
 			if (eye == ovrEye_Left) {
@@ -985,7 +1186,6 @@ public:
 protected:
 	void initGl() override {
 		RiftApp::initGl();
-		glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		ovr_RecenterTrackingOrigin(_session);
 		cubeScene = std::shared_ptr<ColorCubeScene>(new ColorCubeScene());
@@ -1017,35 +1217,59 @@ protected:
 			if (inputState.Thumbstick[ovrHand_Right].x < -0.8f) {
 				//decrease cube size
 				rThumbDec = true;
+				char buff[100];
+				sprintf_s(buff, "r thumb dec \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Right].x > 0.8f) {
 				//increase cube size
 				rThumbInc = true;
+				char buff[100];
+				sprintf_s(buff, "r thumb inc \n");
+				OutputDebugStringA(buff);
 			}			
 			//MOVING CUBE (Left stick, forward-back, left-right, Right stick, up-down)
 			else if (inputState.Thumbstick[ovrHand_Left].x < -0.8f) {
 				//move cube left
 				lThumbMoveLeft = true;
+				char buff[100];
+				sprintf_s(buff, "l thumb left \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Left].x > 0.8f) {
 				//move cube right
 				lThumbMoveRight = true;
+				char buff[100];
+				sprintf_s(buff, "l thumb right \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Left].y < -0.8f) {
 				//move cube back
 				lThumbMoveBack = true;
+				char buff[100];
+				sprintf_s(buff, "l thumb down \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Left].y > 0.8f) {
 				//move cube forward
 				lThumbMoveForw = true;
+				char buff[100];
+				sprintf_s(buff, "l thumb up \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Right].y < -0.8f) {
 				//move cube down
 				rThumbMoveDown = true;
+				char buff[100];
+				sprintf_s(buff, "r thumb down \n");
+				OutputDebugStringA(buff);
 			}
 			else if (inputState.Thumbstick[ovrHand_Right].y > 0.8f) {
 				//move cube up
 				rThumbMoveUp = true;
+				char buff[100];
+				sprintf_s(buff, "r thumb up \n");
+				OutputDebugStringA(buff);
 			}
 			else {
 				rThumbDec = false;
@@ -1056,6 +1280,16 @@ protected:
 				lThumbMoveBack = false;
 				rThumbMoveUp = false;
 				rThumbMoveDown = false;
+			}
+
+			if (inputState.IndexTrigger[ovrHand_Right] > 0.5f) {
+				rTriggerPressed = true;
+				char buff[100];
+				sprintf_s(buff, "r index pressed \n");
+				OutputDebugStringA(buff);
+			}
+			else {
+				rTriggerPressed = false;
 			}
 
 
@@ -1078,29 +1312,42 @@ protected:
 			
 
 			if (inputState.Buttons & ovrButton_A) {
-				if (aPressed == false) {
-					aPressed = true;
-					renderMode = (renderMode + 1) % 4;
-
-					char buff[100];
-					sprintf_s(buff, "Render mode: %d\n", renderMode);
-					OutputDebugStringA(buff);
-
-					ovr_SetControllerVibration(_session, ovrControllerType_RTouch, 0.0f, 1.0f);
-				}
+				aPressed = true;				
 			}
-			
 			else if (inputState.Buttons & ovrButton_B) {
 				if (bPressed == false) {
 					bPressed = true;
 
-					trackingMode = (trackingMode + 1) % 4;
+					trackingMode = (trackingMode + 1) % 2;
 
 					char buff[100];
 					sprintf_s(buff, "Tracking mode: %d\n", trackingMode);
 					OutputDebugStringA(buff);
 				}
 			} 
+			else if (inputState.Buttons & ovrButton_X) {
+				if (xPressed == false) {
+					xPressed = true;
+
+					skyboxMode = (skyboxMode + 1) % 2;
+				}
+			}
+			else if (inputState.Buttons & ovrButton_Y) {
+				if (yPressed == false) {
+					yPressed = true;
+
+					if (failure != -1) {
+						failure = -1;
+					}
+					else {
+						failure = (rand() % 6);
+					}
+
+					char buff[100];
+					sprintf_s(buff, "y pressed: %d\n", failure);
+					OutputDebugStringA(buff);
+				}
+			}
 			else if (inputState.Buttons & ovrButton_LThumb) {
 				if (lThumbPressed == false) {
 
@@ -1128,6 +1375,7 @@ protected:
 				aPressed = false;
 				xPressed = false; 
 				bPressed = false;
+				yPressed = false;
 				lThumbPressed = false;
 				rThumbPressed = false;
 			}
@@ -1141,12 +1389,15 @@ protected:
 		glm::quat leftHandOrient = glm::quat(leftHandPose.Orientation.x, leftHandPose.Orientation.y, leftHandPose.Orientation.z, leftHandPose.Orientation.w);
 
 		ovrPosef rightHandPose = trackState.HandPoses[ovrHand_Right].ThePose;
-		glm::vec3 rightHandPosition = glm::vec3(rightHandPose.Position.x, rightHandPose.Position.y, rightHandPose.Position.z);
+		rightHandPosition = glm::vec3(rightHandPose.Position.x, rightHandPose.Position.y, rightHandPose.Position.z);
 		glm::quat rightHandOrient = glm::quat(rightHandPose.Orientation.x, rightHandPose.Orientation.y, rightHandPose.Orientation.z, rightHandPose.Orientation.w);
 
-		//ovrPosef headPose = trackState.HeadPose.ThePose;
-
-		cubeScene->render(projection, glm::inverse(headPose), eye, renderTexture);
+		if (headViewpoint) {
+			cubeScene->render(projection, glm::inverse(headPose), eye, renderTexture);
+		}
+		else {
+			cubeScene->render(projection, glm::inverse(ovr::toGlm(rightHandPose)), eye, renderTexture);
+		}
 	}
 };
 

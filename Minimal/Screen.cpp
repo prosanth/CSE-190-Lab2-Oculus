@@ -2,17 +2,33 @@
 #include "texture.h"
 #include <Windows.h>
 #include <iostream>
+#include "Window.h"
 
 Screen::Screen(int face)
-{
-	toWorld = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	//setUpSkybox(skybox);
-
-	this->skybox = skybox;
+{	
 	this->face = face;
 
-	this->height = 30;
-	this->width = 30;
+	corners.push_back(glm::vec3(-1.2f, -1.2f, -1.2f)); //pa
+	corners.push_back(glm::vec3(1.2f, -1.2f, -1.2f));  //pb
+	corners.push_back(glm::vec3(1.2f, 1.2f, -1.2f));
+	corners.push_back(glm::vec3(-1.2f, 1.2f, -1.2f));  //pc
+	
+	//toWorld = glm::mat4(1.0f);
+
+	if (face == 0) { //front
+		toWorld = glm::mat4(1.0f) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+	else if (face == 1) { //left
+		toWorld = glm::mat4(1.0f) * glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		//toWorld = toWorld * glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	}
+	else {  //bottom
+		toWorld = glm::mat4(1.0f) * glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		toWorld = toWorld * glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	}
+	
+
+	lineShader = LoadShaders("./lineshader.vert", "./lineshader.frag");
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -25,19 +41,9 @@ Screen::Screen(int face)
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-
-	if (face == 0) {
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(front_indices), front_indices, GL_STATIC_DRAW);
-	}
-	else if (face == 1) {
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(left_indices), left_indices, GL_STATIC_DRAW);
-	} 
-	else {
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(bottom_indices), bottom_indices, GL_STATIC_DRAW);
-	}
+	
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(front_indices), front_indices, GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -50,14 +56,34 @@ Screen::~Screen()
 	glDeleteBuffers(1, &EBO);
 }
 
-void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection, GLuint texture)
+void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection, GLuint texture, bool rightEye, bool debugOn, glm::vec3 eyePosition)
 {
-	glm::mat4 newmv;
+	glUseProgram(shaderProgram);
+	//glm::vec3 eyePosition = glm::vec3(modelview[3]);
+
+	lines.clear();
+	glm::vec3 pa = glm::vec3(-1.2f, 1.2f, -1.2f);
+	glm::vec3 pb = glm::vec3(1.2f, 1.2f, -1.2f);
+	glm::vec3 pc = glm::vec3(-1.2f, -1.2f, -1.2f);
+	glm::vec3 pd = glm::vec3(1.2f, -1.2f, -1.2f);
+
+	lines.push_back(new Line(eyePosition, pa));
+	lines.push_back(new Line(eyePosition, pb));
+	lines.push_back(new Line(eyePosition, pc));
+	lines.push_back(new Line(eyePosition, pd));
+	lines.push_back(new Line(pa, pb));
+	lines.push_back(new Line(pa, pc));
+	lines.push_back(new Line(pb, pd));
+	lines.push_back(new Line(pc, pd));
+
+	char buff[100];
+	sprintf_s(buff, "position: %f %f %f \n", eyePosition.x, eyePosition.y, eyePosition.z);
+	//OutputDebugStringA(buff);
+
+	glm::mat4 newmv = modelview * toWorld;
 
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
-
-	newmv = modelview * toWorld;
 
 	uProjection = glGetUniformLocation(shaderProgram, "projection");
 	uModelview = glGetUniformLocation(shaderProgram, "modelview");
@@ -77,61 +103,12 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 	glBindTexture(GL_TEXTURE_2D, texture);
 	// Set our "renderedTexture" sampler to user Texture Unit 0
 	glUniform1i(glGetUniformLocation(shaderProgram, "renderedTexture"), 0);
-	glUniform1f(glGetUniformLocation(shaderProgram, "time"), (float)(glfwGetTime()*10.0f));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	if (skybox) {
-		glDepthMask(GL_TRUE);
+	if (debugOn) {
+		for (Line * l : lines) {
+			l->draw(lineShader, modelview, projection, rightEye, toWorld);
+		}
 	}
-}
-
-void Screen::setUpSkybox(bool skybox) {
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1000, 1000, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
-
-	GLuint rboId;
-	glGenRenderbuffers(1, &rboId);
-	glBindRenderbuffer(GL_RENDERBUFFER, rboId);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1000, 1000);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-	/*unsigned char * right = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, right);
-
-	unsigned char * left = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, left);
-
-	unsigned char * top = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, top);
-
-	unsigned char * bottom = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, bottom);
-
-	unsigned char * back = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, back);
-
-	unsigned char * front = loadPPM("./assets/vr_test_pattern.ppm", width, height);
-	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, front);*/
-
-	// Make sure no bytes are padded:
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	// Select GL_MODULATE to mix texture with polygon color for shading:
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-	// Use bilinear interpolation:
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Use clamp to edge to hide skybox edges:
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }

@@ -33,7 +33,7 @@ public:
 	void loadBearLeftEye();
 	void loadTest();
 	void changeSize(bool increase, bool decrease, bool default);
-	void move(int leftright, int forwardback, int updown);
+	void move(int leftright, int forwardback, int updown, bool default);
 
 	// These variables are needed for the shader program
 	GLuint VBO, VAO, EBO;
