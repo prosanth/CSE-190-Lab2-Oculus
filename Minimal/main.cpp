@@ -1392,11 +1392,16 @@ protected:
 		rightHandPosition = glm::vec3(rightHandPose.Position.x, rightHandPose.Position.y, rightHandPose.Position.z);
 		glm::quat rightHandOrient = glm::quat(rightHandPose.Orientation.x, rightHandPose.Orientation.y, rightHandPose.Orientation.z, rightHandPose.Orientation.w);
 
-		if (headViewpoint) {
+		if (!rTriggerPressed) {
 			cubeScene->render(projection, glm::inverse(headPose), eye, renderTexture);
 		}
 		else {
-			cubeScene->render(projection, glm::inverse(ovr::toGlm(rightHandPose)), eye, renderTexture);
+			if (renderTexture) { //rendering cube & skybox
+				cubeScene->render(projection, glm::inverse(ovr::toGlm(rightHandPose)), eye, renderTexture);
+			}
+			else {
+				cubeScene->render(projection, glm::inverse(headPose), eye, renderTexture);
+			}
 		}
 	}
 };
