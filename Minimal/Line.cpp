@@ -42,8 +42,7 @@ void Line::update(glm::vec3 head, glm::vec3 tail) {
 void Line::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection, bool righteye, glm::mat4 toWorld)
 {
 	glUseProgram(shaderProgram);
-	toWorld = glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 0.8, 0.8)) * toWorld;
-	glm::mat4 newmv = modelview * toWorld;
+	glm::mat4 newmv = modelview * glm::mat4(1.0f);
 
 	uProjection = glGetUniformLocation(shaderProgram, "projection");
 	uModelview = glGetUniformLocation(shaderProgram, "modelview");
@@ -57,7 +56,7 @@ void Line::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection,
 		glUniform1f(eye, 1.0f);
 	}
 
-	glUniformMatrix4fv(uProjection, 1, GL_FALSE, &Window::P[0][0]);
+	glUniformMatrix4fv(uProjection, 1, GL_FALSE, &projection[0][0]);
 	glUniformMatrix4fv(uModelview, 1, GL_FALSE, &newmv[0][0]);
 
 	glLineWidth(10.0f);

@@ -67,14 +67,14 @@ void Screen::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projectio
 	glm::vec3 pc = glm::vec3(-1.2f, -1.2f, -1.2f);
 	glm::vec3 pd = glm::vec3(1.2f, -1.2f, -1.2f);
 
-	lines.push_back(new Line(eyePosition, pa));
-	lines.push_back(new Line(eyePosition, pb));
-	lines.push_back(new Line(eyePosition, pc));
-	lines.push_back(new Line(eyePosition, pd));
-	lines.push_back(new Line(pa, pb));
-	lines.push_back(new Line(pa, pc));
-	lines.push_back(new Line(pb, pd));
-	lines.push_back(new Line(pc, pd));
+	lines.push_back(new Line(eyePosition, toWorld * glm::vec4(pa, 1.0f)));
+	lines.push_back(new Line(eyePosition, toWorld * glm::vec4(pb, 1.0f)));
+	lines.push_back(new Line(eyePosition, toWorld * glm::vec4(pc, 1.0f)));
+	lines.push_back(new Line(eyePosition, toWorld * glm::vec4(pd, 1.0f)));
+	lines.push_back(new Line(toWorld * glm::vec4(pa, 1.0f), toWorld * glm::vec4(pb, 1.0f)));
+	lines.push_back(new Line(toWorld * glm::vec4(pa, 1.0f), toWorld * glm::vec4(pc, 1.0f)));
+	lines.push_back(new Line(toWorld * glm::vec4(pb, 1.0f), toWorld * glm::vec4(pd, 1.0f)));
+	lines.push_back(new Line(toWorld * glm::vec4(pc, 1.0f), toWorld * glm::vec4(pd, 1.0f)));
 
 	char buff[100];
 	sprintf_s(buff, "position: %f %f %f \n", eyePosition.x, eyePosition.y, eyePosition.z);
