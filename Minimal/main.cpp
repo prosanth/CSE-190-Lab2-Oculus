@@ -71,6 +71,15 @@ glm::mat4 rightPos;
 glm::mat4 leftPose;
 glm::mat4 rightPose;
 
+glm::mat4 left1Proj;
+glm::mat4 right1Proj;
+glm::mat4 left2Proj;
+glm::mat4 right2Proj;
+glm::mat4 left3Proj;
+glm::mat4 right3Proj;
+
+glm::mat4 pPrime;
+
 glm::vec3 eyeOffsetDelta;
 glm::vec3 eyeOffsetDefault;
 
@@ -718,7 +727,12 @@ protected:
 			glm::mat4 identity = mat4(1.0f);
 			glm::mat4 T = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(-pe, 1.0f));
 
-			glm::mat4 pPrime = proj*mT*T;
+			pPrime = proj*mT*T;
+
+			if (trackingMode != 1) {
+				left1Proj = pPrime;
+				right1Proj = pPrime;
+			}
 			
 			if (failure == 0 && eye == ovrEye_Left) {
 			}
@@ -726,10 +740,12 @@ protected:
 			}
 			else {
 				if (eye == ovrEyeType::ovrEye_Left) {
-					renderScene(pPrime, leftPose, eye, true);
+					
+					renderScene(left1Proj, leftPose, eye, true);
 				}
 				else {
-					renderScene(pPrime, rightPose, eye, true);
+					
+					renderScene(right1Proj, rightPose, eye, true);
 				}
 			}
 
@@ -818,16 +834,23 @@ protected:
 
 			pPrime = proj*mT*T;
 
+			if (trackingMode != 1) {
+				left2Proj = pPrime;
+				right2Proj = pPrime;
+			}
+
 			if (failure == 2 && eye == ovrEye_Left) {
 			}
 			else if (failure == 3 && eye == ovrEye_Right) {
 			}
 			else {
 				if (eye == ovrEyeType::ovrEye_Left) {
-					renderScene(pPrime, leftPose, eye, true);
+					
+					renderScene(left2Proj, leftPose, eye, true);
 				}
 				else {
-					renderScene(pPrime, rightPose, eye, true);
+					
+					renderScene(right2Proj, rightPose, eye, true);
 				}
 			}
 			//renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, true);
@@ -899,17 +922,21 @@ protected:
 			T = glm::mat4(identity[0], identity[1], identity[2], glm::vec4(-pe, 1.0f));
 
 			pPrime = proj*mT*T;
+			if (trackingMode != 1) {
+				left3Proj = pPrime;
+				right3Proj = pPrime;
+			}
 
 			if (failure == 4 && eye == ovrEye_Left) {
 			}
 			else if (failure == 5 && eye == ovrEye_Right) {
 			}
 			else {
-				if (eye == ovrEyeType::ovrEye_Left) {
-					renderScene(pPrime, leftPose, eye, true);
+				if (eye == ovrEyeType::ovrEye_Left) {					
+					renderScene(left3Proj, leftPose, eye, true);
 				}
-				else {
-					renderScene(pPrime, rightPose, eye, true);
+				else {					
+					renderScene(right3Proj, rightPose, eye, true);
 				}
 			}
 
@@ -954,7 +981,7 @@ protected:
 		//save last left and right eye poses
 		if (trackingMode != 1) {
 			leftPose = ovr::toGlm(eyePoses[ovrEye_Left]);
-			rightPose = ovr::toGlm(eyePoses[ovrEye_Right]);
+			rightPose = ovr::toGlm(eyePoses[ovrEye_Right]);			
 		}
 		
 	}

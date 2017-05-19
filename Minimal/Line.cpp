@@ -59,7 +59,11 @@ void Line::draw(GLuint shaderProgram, glm::mat4 modelview, glm::mat4 projection,
 	glUniformMatrix4fv(uProjection, 1, GL_FALSE, &projection[0][0]);
 	glUniformMatrix4fv(uModelview, 1, GL_FALSE, &newmv[0][0]);
 
-	glLineWidth(10.0f);
+
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glLineWidth(5.0f);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	glBindVertexArray(VAO);
 	glDrawArrays(GL_LINES, 0, points.size());
